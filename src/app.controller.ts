@@ -1,12 +1,21 @@
 import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service';
+import { PublicClient, createPublicClient, http } from 'viem';
+import { base } from 'viem/chains';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  client!: PublicClient;
+
+  constructor() {
+    this.client = createPublicClient({
+      chain: base,
+      transport: http(),
+    });
+  }
 
   @Get()
-  getHello(): string {
-    return this.appService.getHello();
+  async getHello(): Promise<bigint> {
+    const blockNumber = await this.client.getBlockNumber();
+    return blockNumber;
   }
 }
