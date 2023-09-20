@@ -14,7 +14,12 @@ export class AppController {
   }
 
   @Get()
-  async getHello(): Promise<bigint> {
+  async getHello(): Promise<string> {
+    return 'Hello';
+  }
+
+  @Get('getBlockNumber')
+  async getBlockNumber(): Promise<bigint> {
     const blockNumber = await this.client.getBlockNumber();
     return blockNumber;
   }
