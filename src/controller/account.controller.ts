@@ -4,7 +4,7 @@ import { GetBalanceParameters, GetTransactionCountParameters } from 'viem';
 
 @Controller('account')
 export class AccountController {
-  constructor(private publicService: PublicService) { }
+  constructor(private publicService: PublicService) {}
 
   @Get('getBalance/:address')
   async getBalance(@Param('address') address: `0x${string}`): Promise<bigint> {
