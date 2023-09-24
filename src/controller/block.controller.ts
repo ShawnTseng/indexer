@@ -9,13 +9,13 @@ export class BlockController {
   async getBlock(): Promise<any> {
     const block = await this.publicService.client.getBlock();
     const { baseFeePerGas, difficulty, extraData, gasLimit, gasUsed } = block;
-    return `baseFeePerGas: ${baseFeePerGas}     
-            difficulty: ${difficulty}     
-            extraData: ${extraData}     
-            gasLimit: ${gasLimit}     
-            gasUsed: ${gasUsed}
-            ...
-            `;
+    return `baseFeePerGas: ${baseFeePerGas}
+difficulty: ${difficulty}
+extraData: ${extraData}
+gasLimit: ${gasLimit}
+gasUsed: ${gasUsed}
+...
+`;
   }
 
   @Get('getBlockNumber')
