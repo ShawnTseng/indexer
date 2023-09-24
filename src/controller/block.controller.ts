@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { PublicService } from './public.service';
+import { PublicService } from 'src/service/public.service';
 
 @Controller('block')
 export class BlockController {

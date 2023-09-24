@@ -1,4 +1,4 @@
-import { PublicService } from './public.service';
+import { PublicService } from '../service/public.service';
 import { Controller, Get, Query } from '@nestjs/common';
 import { GetBalanceParameters, GetTransactionCountParameters } from 'viem';
 
