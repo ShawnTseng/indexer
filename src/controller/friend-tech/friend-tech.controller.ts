@@ -1,7 +1,7 @@
+import { PrismaService } from './../../prisma/prisma.service';
 import { Controller, Get } from '@nestjs/common';
 import { PublicService } from '../../service/public.service';
 import FriendTechConstants from './friend-tech-constants';
-import { AbiCoder, Result, dataSlice, ethers } from 'ethers';
 import {
   Transaction,
   TransactionReceipt,
@@ -14,10 +14,15 @@ import { TransformedTransaction } from './types';
 
 @Controller('friend-tech')
 export class FriendTechController {
+  // All tracked user address
+  private users: Set<string> = new Set();
   // User to token supply (address => token supply)
   private supply: Record<string, number> = {};
 
-  constructor(private publicService: PublicService) { }
+  constructor(
+    private publicService: PublicService,
+    private db: PrismaService,
+  ) {}
 
   @Get('sync')
   async sync(): Promise<any> {
@@ -127,6 +132,11 @@ export class FriendTechController {
     // Transform only successful transactions
     const transformedTransactions: Array<TransformedTransaction> = [];
 
+    // List of users with modified supply balances
+    const userDiff: Set<string> = new Set();
+    // List of new, untracked users
+    const newUsers: Set<string> = new Set();
+
     for (const transaction of transactionArray) {
       // TODO:only collect success transaction
       const result = decodeAbiParameters(
@@ -159,7 +169,67 @@ export class FriendTechController {
         cost: Math.trunc(cost * 1e18),
       };
       transformedTransactions.push(transformedTransaction);
+
+      // Apply user token supply update
+      if (isBuy) {
+        this.supply[subject] += amount;
+      } else {
+        this.supply[subject] -= amount;
+      }
+      // Track user with supply diff
+      userDiff.add(subject);
+
+      // Track new users
+      if (!this.users.has(transformedTransaction.from)) {
+        this.users.add(transformedTransaction.from);
+        newUsers.add(transformedTransaction.from);
+      }
+      if (!this.users.has(transformedTransaction.subject)) {
+        this.users.add(transformedTransaction.subject);
+        newUsers.add(transformedTransaction.subject);
+      }
     }
+
+    console.log(`Collected ${transformedTransactions.length} transactions`);
+
+    // Setup subject updates
+    const subjectUpserts = [];
+    for (const subject of new Set([...userDiff, ...newUsers])) {
+      subjectUpserts.push(
+        this.db.user.upsert({
+          where: {
+            address: subject,
+          },
+          create: {
+            address: subject,
+            supply: this.supply[subject] ?? 0,
+          },
+          update: {
+            supply: this.supply[subject] ?? 0,
+          },
+        }),
+      );
+    }
+
+    // Setup trade updates
+    const tradeInsert = this.db.trade.createMany({
+      data: transformedTransactions.map((tx) => ({
+        hash: tx.hash,
+        timestamp: tx.timestamp,
+        blockNumber: tx.blockNumber,
+        fromAddress: tx.from,
+        subjectAddress: tx.subject,
+        isBuy: tx.isBuy,
+        amount: tx.amount,
+        cost: tx.cost,
+      })),
+    });
+
+    // Insert subjects and trades as atomic transaction
+    await this.db.$transaction([...subjectUpserts, tradeInsert]);
+    console.log(
+      `Added ${subjectUpserts.length} subject updates, ${transformedTransactions.length} trades`,
+    );
 
     return transformedTransactions;
   }
