@@ -1,5 +1,5 @@
-import { PrismaService } from './../../prisma/prisma.service';
 import { Controller, Get } from '@nestjs/common';
+import { PrismaService } from 'src/service/prisma.service';
 import { PublicService } from '../../service/public.service';
 import FriendTechConstants from './friend-tech-constants';
 import {
@@ -8,6 +8,7 @@ import {
   decodeAbiParameters,
   parseAbiParameters,
   slice,
+  decodeEventLog,
 } from 'viem';
 import { getPrice } from './math';
 import { TransformedTransaction } from './types';
@@ -136,6 +137,19 @@ export class FriendTechController {
     const userDiff: Set<string> = new Set();
     // List of new, untracked users
     const newUsers: Set<string> = new Set();
+
+    // TODO:Another way to get transaction details
+    // for (const transactionReceipt of successTransactionReceipt) {
+    //   const result = decodeEventLog({
+    //     eventName: 'Trade',
+    //     abi: FriendTechConstants.ABI,
+    //     data: transactionReceipt.logs[0].data,
+    //     topics: [
+    //       '0x2c76e7a47fd53e2854856ac3f0a5f3ee40d15cfaa82266357ea9779c486ab9c3',
+    //     ],
+    //   });
+    //   console.log(result);
+    // }
 
     for (const transaction of transactionArray) {
       // TODO:only collect success transaction
