@@ -128,6 +128,7 @@ export class FriendTechController {
     const transformedTransactions: Array<TransformedTransaction> = [];
 
     for (const transaction of transactionArray) {
+      // TODO:only collect success transaction
       const result = decodeAbiParameters(
         parseAbiParameters('address, uint256'),
         slice(transaction.input, 4),
