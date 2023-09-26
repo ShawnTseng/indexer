@@ -1,10 +1,22 @@
 import { Controller, Get } from '@nestjs/common';
 import { PublicService } from '../../service/public.service';
 import FriendTechConstants from './friend-tech-constants';
-import { ethers } from 'ethers';
+import { AbiCoder, Result, dataSlice, ethers } from 'ethers';
+import {
+  Transaction,
+  TransactionReceipt,
+  decodeAbiParameters,
+  parseAbiParameters,
+  slice,
+} from 'viem';
+import { getPrice } from './math';
+import { TransformedTransaction } from './types';
 
 @Controller('friend-tech')
 export class FriendTechController {
+  // User to token supply (address => token supply)
+  private supply: Record<string, number> = {};
+
   constructor(private publicService: PublicService) { }
 
   @Get('sync')
@@ -77,8 +89,97 @@ export class FriendTechController {
       toBlock: BigInt(endBlock),
     });
 
-    const transactions = logs.map((log) => log.transactionHash);
+    const hashArray = logs.map((log) => log.transactionHash);
 
-    return transactions;
+    // TODO: transaction, transaction receipt 差在哪? 成交前成交後?
+    const transactionRequests = [];
+    hashArray.forEach(async (hash) => {
+      //  Equals to Transactions
+      const request = this.publicService.client.getTransaction({
+        hash: hash,
+      });
+      transactionRequests.push(request);
+    });
+
+    const transactionReceiptRequests = [];
+    hashArray.forEach(async (hash) => {
+      // Equals to Transaction Details
+      const request = this.publicService.client.getTransactionReceipt({
+        hash: hash,
+      });
+      transactionReceiptRequests.push(request);
+    });
+
+    const transactionArray: Array<Transaction> =
+      await Promise.all(transactionRequests);
+
+    const transactionReceiptArray: Array<TransactionReceipt> =
+      await Promise.all(transactionReceiptRequests);
+
+    const successTransactionReceipt = transactionReceiptArray.filter(
+      (tr) => tr.status === 'success',
+    );
+
+    // console.log(transactionArray);
+    // console.log(transactionReceiptArray);
+
+    // TODO:data mapping 成需要的資料格式
+    // Transform only successful transactions
+    const transformedTransactions: Array<TransformedTransaction> = [];
+
+    for (const transaction of transactionArray) {
+      const result = decodeAbiParameters(
+        parseAbiParameters('address, uint256'),
+        slice(transaction.input, 4),
+      );
+
+      const subject = result[0];
+      const amount = Number(result[1]);
+      const isBuy =
+        transaction.input.slice(0, 10) === FriendTechConstants.SIGNATURES.BUY;
+
+      const cost = this.getTradeCost(subject, amount, isBuy);
+
+      const block = await this.publicService.client.getBlock({
+        blockHash: transaction.blockHash,
+      });
+
+      const { timestamp } = block;
+
+      // Push newly tracked transaction
+      const transformedTransaction = {
+        hash: transaction.hash,
+        timestamp: Number(timestamp),
+        blockNumber: Number(transaction.blockNumber),
+        from: transaction.from.toLowerCase(),
+        subject,
+        isBuy,
+        amount,
+        cost: Math.trunc(cost * 1e18),
+      };
+      transformedTransactions.push(transformedTransaction);
+    }
+
+    return transformedTransactions;
+  }
+
+  private getTradeCost(subject: string, amount: number, buy: boolean): number {
+    // If subject supply is not tracked locally
+    if (!this.supply.hasOwnProperty(subject)) {
+      // Update to 0
+      this.supply[subject] = 0;
+    }
+
+    if (buy) {
+      // Return price to buy tokens
+      const cost = getPrice(this.supply[subject], amount);
+      const fees = cost * FriendTechConstants.FEE * 2;
+      return cost + fees;
+    } else {
+      // Return price to sell tokens
+      const cost = getPrice(this.supply[subject] - amount, amount);
+      const fees = cost * FriendTechConstants.FEE * 2;
+      return cost - fees;
+    }
   }
 }

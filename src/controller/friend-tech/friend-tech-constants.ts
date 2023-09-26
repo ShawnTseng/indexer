@@ -5,6 +5,7 @@ export default {
     BUY: '0x6945b123',
     SELL: '0xb51d0534',
   },
+  FEE: 0.05,
   ABI: [
     {
       anonymous: false,
