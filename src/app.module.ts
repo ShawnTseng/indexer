@@ -4,6 +4,8 @@ import { PublicService } from './service/public.service';
 import { AccountController } from './controller/account.controller';
 import { BlockController } from './controller/block.controller';
 import { FriendTechController } from './controller/friend-tech/friend-tech.controller';
+import { PrismaService } from './prisma/prisma.service';
+import { PrismaService } from './service/prisma/prisma.service';
 
 @Module({
   controllers: [
@@ -12,6 +14,6 @@ import { FriendTechController } from './controller/friend-tech/friend-tech.contr
     BlockController,
     FriendTechController,
   ],
-  providers: [PublicService],
+  providers: [PublicService, PrismaService],
 })
 export class AppModule {}
